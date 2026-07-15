@@ -1,0 +1,17 @@
+{
+  "name": "amazon-rpa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "agent": "node src/ai/agent.js",
+    "tools": "node src/main.js list",
+    "check": "node --check src/main.js && node --check src/toolRegistry.js && node --check src/ai/agent.js && node --check src/tasks/updateProductStock.js && node --check tests/rpa.spec.js",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "@types/node": "^26.1.1"
+  }
+}

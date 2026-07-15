@@ -1,0 +1,12 @@
+node_modules/
+.env
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/
+playwright/.profile/
+downloads/*
+!downloads/.gitkeep
+screenshots/*
+!screenshots/.gitkeep
