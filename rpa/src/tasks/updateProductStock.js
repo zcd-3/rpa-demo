@@ -1,5 +1,6 @@
 import { openProducts } from "./helpers.js";
 import { queryProduct } from "./queryProduct.js";
+import { RpaError } from "../errors.js";
 
 export async function updateProductStock({ page, sku, stock }) {
   if (!sku || !Number.isInteger(Number(stock)) || Number(stock) < 0) {
@@ -8,7 +9,7 @@ export async function updateProductStock({ page, sku, stock }) {
   const nextStock = Number(stock);
   await openProducts(page);
   const input = page.getByTestId(`stock-${sku}`);
-  if ((await input.count()) !== 1) throw new Error(`未找到 SKU：${sku}`);
+  if ((await input.count()) !== 1) throw new RpaError("PRODUCT_NOT_FOUND", `未找到 SKU：${sku}`);
   const currentStock = Number(await input.inputValue());
   if (currentStock === nextStock) {
     return queryProduct({ page, query: sku });

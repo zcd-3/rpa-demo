@@ -1,9 +1,11 @@
 export const toolDefinitions = [
-  { name: "login", description: "登录本地卖家平台", parameters: { type: "object", properties: {} } },
-  { name: "openRefundOrders", description: "查询退款订单并返回订单信息", parameters: { type: "object", properties: { query: { type: "string" } } } },
-  { name: "queryProduct", description: "查询商品并返回价格、库存和上下架状态", parameters: { type: "object", required: ["query"], properties: { query: { type: "string" } } } },
-  { name: "updateProductPrice", description: "修改商品价格并保存", parameters: { type: "object", required: ["sku", "price"], properties: { sku: { type: "string" }, price: { type: "number" } } } },
-  { name: "updateProductStock", description: "修改商品库存并保存", parameters: { type: "object", required: ["sku", "stock"], properties: { sku: { type: "string" }, stock: { type: "integer" } } } },
-  { name: "activateProduct", description: "上架或下架商品", parameters: { type: "object", required: ["sku", "active"], properties: { sku: { type: "string" }, active: { type: "boolean" } } } },
-  { name: "downloadReport", description: "下载指定类型和周期的 CSV 报表；用户说退货报表时使用退款报表", parameters: { type: "object", properties: { type: { type: "string", enum: ["销售报表", "商品报表", "退款报表"] }, range: { type: "string", enum: ["今天", "过去 7 天", "本月", "上月"] } } } },
+  { name: "endConversation", description: "仅当用户明确表示结束、告别或不再继续时结束整个多轮会话；普通任务完成时不要调用", parameters: { type: "object", properties: { message: { type: "string", minLength: 1, description: "自然、简短的结束语" } }, additionalProperties: false } },
+  { name: "requestWriteConfirmation", description: "当写操作需要用户二次确认时必须调用此工具，不要自行用普通文本询问。工具会保存准确操作和参数，并把自然确认问题显示给用户；用户下一轮明确确认后，匹配的写操作无需再次终端确认", parameters: { type: "object", required: ["name", "arguments", "message"], properties: { name: { type: "string", enum: ["updateProductPrice", "updateProductStock", "activateProduct", "deactivateProduct"] }, arguments: { type: "object", description: "即将执行的写工具参数，必须与确认后调用时完全一致" }, message: { type: "string", minLength: 1, description: "面向用户的自然确认问题，不得包含内部函数名" } }, additionalProperties: false } },
+  { name: "login", description: "登录本地卖家平台", parameters: { type: "object", properties: {}, additionalProperties: false } },
+  { name: "openRefundOrders", description: "查询退款订单并返回订单信息", parameters: { type: "object", properties: { query: { type: "string" } }, additionalProperties: false } },
+  { name: "queryProduct", description: "查询商品并返回价格、库存和上下架状态；不传 query 时查询全部商品，可通过 status 筛选全部、已上架或已下架商品", parameters: { type: "object", properties: { query: { type: "string", description: "可选的商品名、SKU 或 ASIN 关键词；省略或空字符串表示全部" }, status: { type: "string", enum: ["全部", "已上架", "已下架"], description: "可选的上下架状态筛选，默认全部" } }, additionalProperties: false } },
+  { name: "updateProductPrice", description: "修改商品价格并保存；执行前可能需要用户确认", parameters: { type: "object", required: ["sku", "price"], properties: { sku: { type: "string", minLength: 1 }, price: { type: "number", minimum: 0 } }, additionalProperties: false } },
+  { name: "updateProductStock", description: "修改商品库存并保存；执行前可能需要用户确认", parameters: { type: "object", required: ["sku", "stock"], properties: { sku: { type: "string", minLength: 1 }, stock: { type: "integer", minimum: 0 } }, additionalProperties: false } },
+  { name: "activateProduct", description: "上架或下架商品；执行前可能需要用户确认", parameters: { type: "object", required: ["sku", "active"], properties: { sku: { type: "string", minLength: 1 }, active: { type: "boolean" } }, additionalProperties: false } },
+  { name: "downloadReport", description: "下载指定类型和周期的 CSV 报表；用户说退货报表时使用退款报表", parameters: { type: "object", properties: { type: { type: "string", enum: ["销售报表", "商品报表", "退款报表"] }, range: { type: "string", enum: ["今天", "过去 7 天", "本月", "上月"] } }, additionalProperties: false } },
 ];

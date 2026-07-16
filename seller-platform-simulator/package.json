@@ -11,6 +11,8 @@
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "typecheck": "tsc --noEmit --project tsconfig.app.json",
+    "check": "npm run lint && npm run typecheck",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

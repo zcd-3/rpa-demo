@@ -1,0 +1,16 @@
+{
+  "name": "rpa-demo-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "check": "npm --prefix seller-platform-simulator run check && npm --prefix rpa run check",
+    "test": "npm --prefix seller-platform-simulator test && npm --prefix rpa test",
+    "test:platform": "npm --prefix seller-platform-simulator test",
+    "test:rpa": "npm --prefix rpa test",
+    "dev": "npm --prefix seller-platform-simulator run dev",
+    "agent": "npm --prefix rpa run agent --"
+  }
+}

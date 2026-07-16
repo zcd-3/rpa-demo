@@ -1,0 +1,15 @@
+"use client";
+
+import { useState } from "react";
+import PortalShell, { addOperation } from "./PortalShell";
+import { refunds } from "./portalData";
+import type { Refund } from "./portalTypes";
+
+export function RefundsPage() {
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("全部状态");
+  const [selected, setSelected] = useState<Refund | null>(null);
+  const shown = refunds.filter((refund) => `${refund.id} ${refund.order} ${refund.buyer} ${refund.product}`.toLowerCase().includes(query.toLowerCase())).filter((refund) => status === "全部状态" || refund.status === status);
+
+  return <PortalShell title="退款订单" subtitle="查询退款申请并查看完整处理信息"><section className="panel refund-panel"><div className="product-toolbar"><label><span>⌕</span><input data-testid="refund-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="退款单号、订单号、买家或商品" /></label><select value={status} onChange={(event) => setStatus(event.target.value)}><option>全部状态</option><option>待处理</option><option>已批准</option><option>退款完成</option></select><button className="primary-button">查询退款单</button></div><div className="table-wrap"><table><thead><tr><th>退款单号</th><th>关联订单</th><th>商品 / 买家</th><th>退款金额</th><th>原因</th><th>状态</th><th>操作</th></tr></thead><tbody>{shown.map((refund) => <tr key={refund.id}><td><strong>{refund.id}</strong><small>{refund.created}</small></td><td><code>{refund.order}</code></td><td><strong>{refund.product}</strong><small>{refund.buyer}</small></td><td><strong>{refund.amount}</strong></td><td>{refund.reason}</td><td><span className={`status ${refund.status === "待处理" ? "warning" : refund.status === "已批准" ? "info" : "success"}`}><i />{refund.status}</span></td><td><button data-testid={`refund-detail-${refund.id}`} className="table-button" onClick={() => { setSelected(refund); addOperation("查看退款详情", refund.id, `关联订单 ${refund.order}`); }}>查看详情</button></td></tr>)}</tbody></table></div></section>{selected && <div className="modal-backdrop" role="presentation" onClick={() => setSelected(null)}><article className="detail-modal" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}><header><div><p>退款详情</p><h2>{selected.id}</h2></div><button aria-label="关闭" onClick={() => setSelected(null)}>×</button></header><div className="detail-status"><span className={`status ${selected.status === "待处理" ? "warning" : "success"}`}><i />{selected.status}</span><small>申请时间：{selected.created}</small></div><dl><div><dt>关联订单</dt><dd>{selected.order}</dd></div><div><dt>买家</dt><dd>{selected.buyer}</dd></div><div><dt>商品</dt><dd>{selected.product}</dd></div><div><dt>退款金额</dt><dd>{selected.amount}</dd></div><div><dt>退款原因</dt><dd>{selected.reason}</dd></div><div className="full"><dt>买家说明</dt><dd>{selected.note}</dd></div></dl><footer>{selected.status === "待处理" && <><button className="outline-button" onClick={() => setSelected(null)}>暂不处理</button><button className="primary-button" onClick={() => { addOperation("批准退款", selected.id, selected.amount); setSelected(null); }}>批准退款</button></>}</footer></article></div>}</PortalShell>;
+}

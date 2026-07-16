@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { readStoredLogs } from "./portalStorage";
 
 const nav = [
   ["/", "⌂", "首页"],
@@ -14,7 +15,7 @@ const nav = [
 
 export function addOperation(action: string, target: string, detail: string) {
   if (typeof window === "undefined") return;
-  const old = JSON.parse(localStorage.getItem("seller-demo-logs") || "[]");
+  const old = readStoredLogs();
   const entry = { id: Date.now(), time: new Date().toLocaleString("zh-CN", { hour12: false }), user: "seller@example.com", action, target, detail, result: "成功" };
   localStorage.setItem("seller-demo-logs", JSON.stringify([entry, ...old].slice(0, 100)));
 }
@@ -33,15 +34,18 @@ export default function PortalShell({ title, subtitle, children }: { title: stri
       router.replace("/login");
       return;
     }
-    setReady(true);
-    const timer = window.setTimeout(() => {
+    const readyTimer = window.setTimeout(() => setReady(true), 0);
+    const expiryTimer = window.setTimeout(() => {
       addOperation("会话超时", "账户", "登录已满 1 分钟，系统要求重新登录");
       localStorage.removeItem("seller-demo-auth");
       localStorage.removeItem("seller-demo-auth-expires");
       sessionStorage.setItem("seller-demo-expired", "true");
       router.replace("/login");
     }, remaining);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(readyTimer);
+      window.clearTimeout(expiryTimer);
+    };
   }, [router]);
   const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(""), 2000); };
   const logout = () => { addOperation("退出登录", "账户", "用户主动退出演示平台"); localStorage.removeItem("seller-demo-auth"); localStorage.removeItem("seller-demo-auth-expires"); router.push("/login"); };

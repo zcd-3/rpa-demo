@@ -1,5 +1,6 @@
 import { openProducts } from "./helpers.js";
 import { queryProduct } from "./queryProduct.js";
+import { RpaError } from "../errors.js";
 
 export async function updateProductPrice({ page, sku, price }) {
   if (!sku || !Number.isFinite(Number(price)) || Number(price) < 0) {
@@ -8,7 +9,7 @@ export async function updateProductPrice({ page, sku, price }) {
   const nextPrice = Number(price);
   await openProducts(page);
   const input = page.getByTestId(`price-${sku}`);
-  if ((await input.count()) !== 1) throw new Error(`未找到 SKU：${sku}`);
+  if ((await input.count()) !== 1) throw new RpaError("PRODUCT_NOT_FOUND", `未找到 SKU：${sku}`);
   const currentPrice = Number(await input.inputValue());
   if (currentPrice === nextPrice) {
     return queryProduct({ page, query: sku });

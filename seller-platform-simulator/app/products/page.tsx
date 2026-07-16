@@ -1,2 +1,2 @@
-import { ProductsPage } from "../components/PortalPages";
+import { ProductsPage } from "../components/ProductsPage";
 export default function Page() { return <ProductsPage />; }

@@ -1,18 +1,24 @@
 import { config } from "../config.js";
+import { RpaError } from "../errors.js";
+import { gotoWithRetry } from "./helpers.js";
 
 export async function login({ page, email = config.email, password = config.password }) {
-  await page.goto(`${config.baseUrl}/login`, { waitUntil: "networkidle" });
+  await gotoWithRetry(page, `${config.baseUrl}/login`, { waitUntil: "domcontentloaded" });
   const emailInput = page.getByTestId("login-email");
   const passwordInput = page.getByTestId("login-password");
   const submit = page.getByTestId("login-submit");
-  await submit.waitFor({ state: "visible" });
-  // Vinext 先返回服务端 HTML，再由 React 绑定表单事件；等待水合完成后再提交。
-  await page.waitForTimeout(500);
+  await page.locator('[data-testid="login-submit"]:not([disabled])').waitFor({ state: "visible" });
   await emailInput.fill(email);
   await passwordInput.fill(password);
-  const navigation = page.waitForURL((url) => url.pathname === "/", { waitUntil: "domcontentloaded" });
   await submit.click();
-  await navigation;
+  await Promise.race([
+    page.waitForURL((url) => url.pathname === "/", { waitUntil: "domcontentloaded" }),
+    page.locator(".login-error").waitFor({ state: "visible" }),
+  ]);
+  if (new URL(page.url()).pathname !== "/") {
+    const message = (await page.locator(".login-error").textContent())?.replace(/^!\s*/, "").trim() || "登录失败";
+    throw new RpaError("AUTH_FAILED", message);
+  }
   await page.getByTestId("nav-products").waitFor({ state: "visible" });
   return { success: true, url: page.url(), expiresInSeconds: 60 };
 }

@@ -1,5 +1,8 @@
 import { getBrowserSession, closeBrowserSession } from "./browser.js";
-import { executeTool, listTools } from "./toolRegistry.js";
+import { captureFailureArtifacts } from "./artifacts.js";
+import { serializeError } from "./errors.js";
+import { createTaskId } from "./reliability.js";
+import { executeTool, listTools, validateToolArguments } from "./toolRegistry.js";
 
 function printUsage() {
   console.log("用法：node src/main.js <任务名> [key=value ...]");
@@ -53,12 +56,16 @@ try {
   process.exit(1);
 }
 
+const taskId = createTaskId("rpa");
+let page;
 try {
-  const { page } = await getBrowserSession();
-  const result = await executeTool(name, { ...args, page });
-  console.log(JSON.stringify(result, null, 2));
+  validateToolArguments(name, args);
+  ({ page } = await getBrowserSession());
+  const result = await executeTool(name, { ...args, page, taskId });
+  console.log(JSON.stringify({ taskId, ...result }, null, 2));
 } catch (error) {
-  console.error(JSON.stringify({ success: false, error: error.message }, null, 2));
+  const artifactPath = await captureFailureArtifacts({ page, error, taskId, metadata: { tool: name } });
+  console.error(JSON.stringify({ taskId, ...serializeError(error), artifactPath }, null, 2));
   process.exitCode = 1;
 } finally {
   await closeBrowserSession();

@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: |
+            seller-platform-simulator/package-lock.json
+            rpa/package-lock.json
+      - name: Install platform dependencies
+        run: npm.cmd --prefix seller-platform-simulator ci
+      - name: Install RPA dependencies
+        run: npm.cmd --prefix rpa ci
+      - name: Static checks
+        run: npm.cmd run check
+      - name: Platform build tests
+        run: npm.cmd run test:platform
+      - name: RPA browser tests
+        run: npm.cmd run test:rpa

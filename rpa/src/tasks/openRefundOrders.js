@@ -1,9 +1,9 @@
 import { config } from "../config.js";
-import { ensureLoggedIn } from "./helpers.js";
+import { ensureLoggedIn, gotoWithRetry } from "./helpers.js";
 
 export async function openRefundOrders({ page, query = "" }) {
   await ensureLoggedIn(page);
-  await page.goto(`${config.baseUrl}/refunds`, { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, `${config.baseUrl}/refunds`, { waitUntil: "domcontentloaded" });
   const search = page.getByTestId("refund-search");
   await search.waitFor({ state: "visible" });
   if (query) await search.fill(query);

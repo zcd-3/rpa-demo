@@ -1,10 +1,10 @@
 import path from "node:path";
 import { config } from "../config.js";
-import { ensureLoggedIn, timestamp } from "./helpers.js";
+import { ensureLoggedIn, gotoWithRetry, timestamp } from "./helpers.js";
 
 export async function downloadReport({ page, type = "销售报表", range = "本月" }) {
   await ensureLoggedIn(page);
-  await page.goto(`${config.baseUrl}/reports`, { waitUntil: "domcontentloaded" });
+  await gotoWithRetry(page, `${config.baseUrl}/reports`, { waitUntil: "domcontentloaded" });
   const typeAliases = { 退货报表: "退款报表" };
   const selectedType = typeAliases[type] || type;
   const typeSelect = page.getByTestId("report-type");
