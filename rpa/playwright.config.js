@@ -5,6 +5,7 @@ const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: "**/mcp.test.js",
   fullyParallel: false,
   workers: 1,
   timeout: 30_000,

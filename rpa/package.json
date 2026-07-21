@@ -9,12 +9,18 @@
   "scripts": {
     "start": "node src/main.js",
     "agent": "node src/ai/agent.js",
+    "mcp": "node src/mcp/server.js",
     "tools": "node src/main.js list",
-    "check": "node --check src/main.js && node --check src/config.js && node --check src/errors.js && node --check src/reliability.js && node --check src/artifacts.js && node --check src/browser.js && node --check src/toolRegistry.js && node --check src/ai/agent.js && node --check src/ai/agentRuntime.js && node --check src/ai/conversation.js && node --check src/ai/deepseekClient.js && node --check src/ai/presentation.js && node --check src/ai/toolDefinitions.js && node --check src/tasks/helpers.js && node --check src/tasks/login.js && node --check src/tasks/queryProduct.js && node --check src/tasks/updateProductPrice.js && node --check src/tasks/updateProductStock.js && node --check src/tasks/activateProduct.js && node --check src/tasks/openRefundOrders.js && node --check src/tasks/downloadReport.js && node --check tests/rpa.spec.js && node --check tests/reliability.spec.js",
+    "check": "node --check src/main.js && node --check src/config.js && node --check src/errors.js && node --check src/reliability.js && node --check src/artifacts.js && node --check src/browser.js && node --check src/toolRegistry.js && node --check src/mcp/server.js && node --check src/mcp/toolDefinitions.js && node --check src/ai/agent.js && node --check src/ai/agentRuntime.js && node --check src/ai/conversation.js && node --check src/ai/deepseekClient.js && node --check src/ai/presentation.js && node --check src/ai/toolDefinitions.js && node --check src/tasks/helpers.js && node --check src/tasks/login.js && node --check src/tasks/queryProduct.js && node --check src/tasks/updateProductPrice.js && node --check src/tasks/updateProductStock.js && node --check src/tasks/activateProduct.js && node --check src/tasks/openRefundOrders.js && node --check src/tasks/downloadReport.js && node --check tests/rpa.spec.js && node --check tests/reliability.spec.js && node --check tests/mcp.test.js",
+    "test:mcp": "node --test tests/mcp.test.js",
     "test": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
     "@types/node": "^26.1.1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.28"
   }
 }

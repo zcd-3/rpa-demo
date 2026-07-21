@@ -60,6 +60,204 @@ node src/main.js downloadReport type=销售报表 range=本月
 
 非法 URL、布尔值或数字配置会在启动时立即给出明确错误，不会等到浏览器运行后才失败。
 
+## 通过 stdio MCP 调用
+
+RPA 同时提供本地 MCP server，原有 CLI 和 DeepSeek Agent 调用方式保持不变。MCP server 暴露 `login`、`openRefundOrders`、`queryProduct`、`updateProductPrice`、`updateProductStock`、`activateProduct`、`deactivateProduct` 和 `downloadReport` 八个工具。
+
+MCP 调用不经过 `src/ai/agent.js`。接入 AstrBot 等外部 Agent 时，自然语言理解、工具选择和多轮对话由外部 Agent 负责，MCP server 直接复用 `toolRegistry.js`、参数校验、浏览器会话和 RPA 任务实现，因此不需要配置 `DEEPSEEK_API_KEY`。
+
+```text
+外部 Agent ──stdio/JSON-RPC──> RPA MCP server ──> toolRegistry ──> Playwright ──> 卖家平台
+```
+
+成功和失败都会返回 JSON 文本及 `structuredContent`；失败结果包含稳定错误码、`taskId` 和故障现场路径。同一 MCP server 进程复用浏览器会话，并串行执行工具，避免多个调用同时操作同一页面。进程退出或 stdin 关闭时会关闭浏览器会话，运行日志只写 stderr，不会污染 JSON-RPC stdout。
+
+### 本地准备
+
+安装依赖并配置 RPA：
+
+```cmd
+cd /d D:\rpa-demo\rpa
+npm.cmd ci
+copy .env.example .env
+```
+
+先启动卖家平台：
+
+```cmd
+cd /d D:\rpa-demo\seller-platform-simulator
+npm.cmd run dev
+```
+
+可以独立启动 MCP server 做人工排错，但正常使用 stdio 时应由 MCP client 自动创建该进程，不需要手动保持它运行：
+
+```cmd
+cd /d D:\rpa-demo\rpa
+npm.cmd run mcp
+```
+
+只验证 MCP 协议、工具 Schema 和真实 stdio 子进程入口：
+
+```cmd
+cd /d D:\rpa-demo\rpa
+npm.cmd run test:mcp
+```
+
+## 应用实例：通过 AstrBot 在手机 QQ 操作 RPA
+
+这个实例将手机 QQ 作为对话入口。用户向 QQ 机器人发送自然语言，AstrBot 的 Agent 选择 RPA MCP 工具，MCP server 再通过 Playwright 操作本地卖家平台，最终结果沿原链路回复到 QQ。
+
+```text
+手机 QQ
+   │  查询或操作指令
+   ▼
+QQ 机器人 / NapCat
+   │  OneBot v11 反向 WebSocket
+   ▼
+AstrBot Agent
+   │  stdio MCP
+   ▼
+local-seller-rpa
+   │  Playwright
+   ▼
+seller-platform-simulator
+```
+
+AstrBot 官方文档：
+
+- [MCP 配置](https://docs.astrbot.app/use/mcp.html)
+- [模型函数调用](https://docs.astrbot.app/use/function-calling.html)
+- [OneBot v11 与 NapCat 接入](https://docs.astrbot.app/platform/aiocqhttp.html)
+- [QQ 官方机器人接入](https://docs.astrbot.app/platform/qqofficial.html)
+
+### 1. 部署方式要求
+
+推荐让 AstrBot、RPA 和卖家平台都直接运行在同一台 Windows 电脑上。AstrBot 点击连接 stdio MCP server 时，会在 AstrBot 所在主机启动 `node` 子进程；因此只有该主机能访问下面的 Node.js 路径、`D:\rpa-demo` 和 Microsoft Edge 时，配置才会生效。
+
+如果 AstrBot 运行在 Docker 容器中，不能直接照抄 Windows 路径：容器内既无法识别 `D:\rpa-demo\...`，通常也不能直接使用宿主机 Edge 和现有 Playwright 用户目录。当前项目只实现了本地 stdio transport；这个实例应使用 Windows 原生 AstrBot。若必须容器化，需要另行准备容器内的源码、Node.js、浏览器和持久目录，或为 RPA 增加远程 Streamable HTTP transport。
+
+### 2. 在 AstrBot 中添加 RPA MCP server
+
+先在 Windows 终端确认 Node.js 的实际位置：
+
+```cmd
+where.exe node
+```
+
+进入 AstrBot WebUI 的 MCP 管理页面，点击“新增 MCP 服务器”，选择“Stdio 模板”。
+
+服务器名称填写：
+
+```text
+local-seller-rpa
+```
+
+服务器配置框只填写服务器对象本身，不要粘贴外层的 `mcpServers` 或 `local-seller-rpa` 键：
+
+```json
+{
+  "command": "C:\\Program Files\\nodejs\\node.exe",
+  "args": [
+    "D:\\rpa-demo\\rpa\\src\\mcp\\server.js"
+  ]
+}
+```
+
+如果 `where.exe node` 返回了其他位置，用返回的绝对路径替换 `command`。MCP server 会按自身文件位置读取 `D:\rpa-demo\rpa\.env`，所以不需要在 AstrBot 中重复填写卖家账号、密码或 DeepSeek API Key。
+
+保存并启用后，检查 AstrBot 控制台和 MCP 工具列表。连接成功时应识别到以下八个工具：
+
+```text
+login
+openRefundOrders
+queryProduct
+updateProductPrice
+updateProductStock
+activateProduct
+deactivateProduct
+downloadReport
+```
+
+还需要在 AstrBot 中配置支持 Function Calling 的模型，并在工具管理中启用这个 MCP server。模型不支持工具调用时，即使 MCP 显示连接成功，也只会生成文字而不会执行 RPA。
+
+### 3. 把 AstrBot 接入 QQ
+
+本地演示可以使用 NapCat 将一个专用 QQ 账号接入 AstrBot：
+
+1. 在 AstrBot WebUI 打开“机器人”，创建 `OneBot v11` 机器人。
+2. 启用该机器人，反向 WebSocket 主机填写 `0.0.0.0`，端口使用默认的 `6199`；如果配置 Token，AstrBot 与 NapCat 两端必须一致。
+3. 在 NapCat WebUI 打开“网络配置”，新建并启用 `WebSockets 客户端`。
+4. AstrBot 与 NapCat 在同一台 Windows 主机时，连接地址填写 `ws://127.0.0.1:6199/ws`。
+5. 回到 AstrBot 控制台，确认出现 `aiocqhttp(OneBot v11) 适配器已连接`。
+6. 在手机上使用另一个 QQ 账号向机器人账号发送消息，或把机器人账号加入仅供测试的群聊。
+
+不要把 NapCat 或 AstrBot 的管理端口直接暴露到公网。个人 QQ 自动化还可能受到平台规则和账号风控影响，建议使用专用测试账号。面向正式用户部署时，可以改用 QQ 官方机器人；官方 Webhook 方案通常还需要公网 IP、HTTPS 域名、回调配置和 IP 白名单，具体以 AstrBot 与 QQ 开放平台的当前文档为准。
+
+### 4. 配置写操作确认规则
+
+查询工具不会修改平台数据。价格、库存和上下架属于写操作，工具 Schema 和描述会提示 Agent 先确认，但当前 MCP server 不保存跨消息的确认状态，也不会在服务端强制拦截第一次写调用。因此应在 AstrBot 的人格或系统提示词中加入明确规则：
+
+```text
+你是卖家平台操作助手。查询操作可以直接执行。
+修改价格、修改库存、上架或下架商品前，必须先复述准确的 SKU、当前目标值和即将执行的动作，
+并询问用户是否确认。只有用户在下一条消息中明确回复“确认”“是”或同等含义时才能调用写工具。
+用户修改了 SKU 或目标值时必须重新确认。不得根据含糊回答执行写操作。
+```
+
+这是一层 Agent 行为约束，不是不可绕过的服务端授权机制。不要让不受信任的 QQ 用户访问具备写工具的机器人；需要更强保证时，应在 MCP server 中增加用户身份校验、允许名单和一次性确认令牌。
+
+### 5. 手机 QQ 操作示例
+
+查询商品不需要二次确认：
+
+```text
+用户：查询 WBH-2026-BLK 的价格、库存和上下架状态
+AstrBot：调用 queryProduct
+机器人：WBH-2026-BLK 当前价格为……，库存为……，状态为……
+```
+
+修改库存采用两轮确认：
+
+```text
+用户：把 WBH-2026-BLK 的库存改为 120
+机器人：即将把商品 WBH-2026-BLK 的库存修改为 120，是否确认？
+用户：确认
+AstrBot：调用 updateProductStock
+机器人：库存修改成功，并返回修改后的商品信息。
+```
+
+上下架同样需要确认：
+
+```text
+用户：下架 HUB-7IN1-GRY
+机器人：即将下架商品 HUB-7IN1-GRY，是否确认？
+用户：确认
+AstrBot：调用 deactivateProduct
+机器人：商品已下架。
+```
+
+下载报表示例：
+
+```text
+用户：下载本月销售报表
+AstrBot：调用 downloadReport
+机器人：报表已生成，文件保存在运行 RPA 的 Windows 电脑上的 downloads 目录。
+```
+
+`downloadReport` 当前只把文件保存到 RPA 主机并返回 `filePath`，不会自动把 CSV 作为 QQ 附件发送。如果需要手机直接收取文件，还要增加 AstrBot 插件或文件发送步骤。
+
+### 6. 常见故障
+
+| 现象 | 排查方法 |
+| --- | --- |
+| MCP server 无法启动 | 使用 `where.exe node` 核对 `command`；确认 `args` 是绝对路径；在 `rpa` 目录执行 `npm.cmd ci` 和 `npm.cmd run test:mcp`。 |
+| 提示找不到模块 | 依赖未安装或 AstrBot 启动了另一份源码；在 `D:\rpa-demo\rpa` 重新执行 `npm.cmd ci`。 |
+| MCP 已连接但模型不调用工具 | 检查模型是否支持 Function Calling，并确认 AstrBot 工具管理中已启用 `local-seller-rpa`。 |
+| RPA 返回连接拒绝 | 确认 `seller-platform-simulator` 正在运行，且 `.env` 中 `BASE_URL=http://localhost:3000`。 |
+| 浏览器用户目录被占用 | 不要同时手动运行多个 `npm.cmd run mcp`；关闭残留 MCP/Edge 进程后让 AstrBot 重新连接。单个 MCP 进程内部已自动串行执行。 |
+| NapCat 已运行但 QQ 消息无回复 | 检查 AstrBot 与 NapCat 的端口、Token 和反向 WebSocket URL，并在 AstrBot 控制台确认适配器已连接。 |
+| QQ 能查询但不能收到报表文件 | 当前工具只返回 RPA 主机上的文件路径，需要额外实现 AstrBot 文件发送。 |
+
 ## 使用 DeepSeek AI
 
 AI 代码按职责拆分：`agent.js` 只负责终端入口，`agentRuntime.js` 负责编排模型与工具，`conversation.js` 管理多轮上下文和待确认操作，`deepseekClient.js` 负责 API 超时与重试，`presentation.js` 负责脱敏日志和自然确认文案。
@@ -169,7 +367,7 @@ npm.cmd test -- --debug --grep "会话到期"
 6. “退货报表”会转换成“退款报表”并成功下载。
 7. 非法报表类型会立即返回可选值。
 
-此外还会验证非法数值、全量与状态筛选查询、商品不存在、错误登录、损坏的本地数据、会话到期、配置校验、有限重试、结构化错误、故障诊断文件、幂等指纹、AI 单次确认、多轮上下文传递、上下文裁剪和 AI 主动结束会话。测试代码位于 `tests/rpa.spec.js` 与 `tests/reliability.spec.js`。看到 `25 passed` 表示全部通过；失败时终端会显示失败用例和具体原因。测试生成的临时报表会在验证后自动删除。
+此外还会验证非法数值、全量与状态筛选查询、商品不存在、错误登录、损坏的本地数据、会话到期、配置校验、有限重试、结构化错误、故障诊断文件、幂等指纹、AI 单次确认、多轮上下文传递、上下文裁剪和 AI 主动结束会话。Playwright 测试代码位于 `tests/rpa.spec.js` 与 `tests/reliability.spec.js`；看到 `25 passed` 表示全部通过。MCP 的 5 个独立测试位于 `tests/mcp.test.js`，使用 `npm.cmd run test:mcp` 执行。失败时终端会显示失败用例和具体原因，测试生成的临时报表会在验证后自动删除。
 
 ## 失败诊断
 
